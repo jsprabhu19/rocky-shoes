@@ -16,7 +16,10 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // Initialize Supabase Client with Service Role Key (to bypass RLS for payment verification)
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
+let supabaseUrl = process.env.VITE_SUPABASE_URL;
+if (supabaseUrl) {
+  supabaseUrl = supabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+}
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let supabase;
