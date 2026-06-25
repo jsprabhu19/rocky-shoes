@@ -1,0 +1,328 @@
+/* ==========================================================================
+   RockyShoes Design System & Global Stylesheet
+   Theme: Premium Red & White, Sleek Typography, Glassmorphism, Micro-Animations
+   ========================================================================== */
+
+/* 1. CSS Variables & Tokens */
+:root {
+  /* Colors */
+  --primary: hsl(354, 85%, 52%);
+  --primary-hover: hsl(354, 90%, 45%);
+  --primary-light: hsl(354, 100%, 96%);
+  --bg-main: hsl(0, 0%, 100%);
+  --bg-subtle: hsl(0, 0%, 98%);
+  --text-main: hsl(0, 0%, 9%);
+  --text-muted: hsl(0, 0%, 45%);
+  --border-light: hsl(0, 0%, 90%);
+  --border-dark: hsl(0, 0%, 20%);
+  --white: #ffffff;
+  --black: #000000;
+  
+  /* Success & Error */
+  --success: hsl(142, 70%, 45%);
+  --error: hsl(0, 84%, 60%);
+
+  /* Layout Variables */
+  --header-height: 80px;
+  --max-width: 1280px;
+  
+  /* Shadow Systems */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
+  --shadow-glass: 0 8px 32px 0 rgba(225, 29, 72, 0.03);
+
+  /* Transitions */
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 0.15s ease-out;
+}
+
+/* 2. Global Resets & Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: var(--transition-fast);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* 3. Typography & Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--text-main) 30%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 4. Layout & Grid Systems */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex-grow: 1;
+  padding-top: var(--header-height);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1.25rem;
+  }
+}
+
+/* 5. Button Components */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.8rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 50px;
+  transition: var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--white);
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3);
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: var(--transition-smooth);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.45);
+  transform: translateY(-2px);
+}
+
+.btn-primary:hover::after {
+  left: 100%;
+}
+
+.btn-secondary {
+  background-color: var(--white);
+  color: var(--text-main);
+  border: 1.5px solid var(--text-main);
+}
+
+.btn-secondary:hover {
+  background-color: var(--text-main);
+  color: var(--white);
+  transform: translateY(-2px);
+}
+
+.btn-outline-red {
+  background-color: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+
+.btn-outline-red:hover {
+  background-color: var(--primary);
+  color: var(--white);
+  transform: translateY(-2px);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* 6. Form Styling */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.9rem 1.2rem;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  background-color: var(--bg-subtle);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+}
+
+.form-control:focus {
+  border-color: var(--primary);
+  background-color: var(--white);
+  box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.08);
+}
+
+/* 7. Toast Notification System */
+.toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--white);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  color: var(--text-main);
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  font-weight: 500;
+}
+
+.toast.toast-success {
+  border-left-color: var(--success);
+}
+
+.toast.toast-error {
+  border-left-color: var(--error);
+}
+
+/* 8. Utility Classes */
+.text-center { text-align: center; }
+.my-4 { margin-top: 2rem; margin-bottom: 2rem; }
+.py-5 { padding-top: 3.5rem; padding-bottom: 3.5rem; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+/* 9. Keyframe Animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bounceCart {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+.animate-fade {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-subtle);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
