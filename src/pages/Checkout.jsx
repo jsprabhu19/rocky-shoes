@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
-import { CreditCard, ShoppingBag, Truck, ChevronLeft, ArrowRight } from 'lucide-react';
+import { CreditCard, ShoppingBag, Truck, ChevronLeft, ArrowRight, Check } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function Checkout() {
@@ -61,12 +61,17 @@ export default function Checkout() {
     );
   }
 
-  const handleCheckoutSubmit = async (e) => {
-    e.preventDefault();
+  const handleCheckoutSubmit = async (e, forceSimulate = false) => {
+    if (e) e.preventDefault();
     setErrorMessage('');
     setProcessing(true);
 
     try {
+      // Validate inputs
+      if (!fullName.trim() || !email.trim() || !phone.trim() || !address.trim()) {
+        throw new Error('Please fill in all shipping fields.');
+      }
+
       // 1. Create Pending Order in Supabase
       const orderData = {
         user_id: user ? user.id : null, // Support guest checkout
@@ -92,7 +97,7 @@ export default function Checkout() {
         order_id: dbOrderId,
         product_id: item.product.id,
         quantity: item.quantity,
-        price: item.product.price // Size is represented by quantity * price for records
+        price: item.product.price
       }));
 
       const { error: itemsError } = await supabase
@@ -101,12 +106,32 @@ export default function Checkout() {
 
       if (itemsError) throw itemsError;
 
-      // 3. Create Order on Razorpay via Payment Server
+      // Fetch active session token for auth headers if logged in
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       const paymentHeaders = { 'Content-Type': 'application/json' };
       if (token) {
         paymentHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
+      // If simulate success is clicked directly
+      if (forceSimulate) {
+        const simRes = await fetch('/api/payment/simulate-success', {
+          method: 'POST',
+          headers: paymentHeaders,
+          body: JSON.stringify({
+            db_order_id: dbOrderId
+          })
+        });
+
+        const simData = await simRes.json();
+        if (!simRes.ok) {
+          throw new Error(simData.error || 'Failed to simulate payment.');
+        }
+
+        clearCart();
+        navigate(`/order-success?orderId=${dbOrderId}`);
+        return;
       }
 
       const res = await fetch('/api/payment/order', {
@@ -259,13 +284,27 @@ export default function Checkout() {
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={processing}
-                className="btn btn-primary btn-block btn-pay-submit"
-              >
-                <CreditCard size={20} /> {processing ? 'Initializing Razorpay...' : `Pay ₹${totalPrice.toLocaleString('en-IN')}`}
-              </button>
+              <div className="checkout-buttons-row">
+                <button
+                  type="button"
+                  onClick={(e) => handleCheckoutSubmit(e, false)}
+                  disabled={processing}
+                  className="btn btn-primary btn-pay-submit"
+                  style={{ flex: 1 }}
+                >
+                  <CreditCard size={18} /> {processing ? 'Processing...' : `Pay via Gateway`}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={(e) => handleCheckoutSubmit(e, true)}
+                  disabled={processing}
+                  className="btn btn-secondary btn-simulate-submit"
+                  style={{ flex: 1 }}
+                >
+                  <Check size={18} /> Simulate Success
+                </button>
+              </div>
             </form>
           </div>
 
@@ -480,6 +519,31 @@ export default function Checkout() {
           font-size: 1.35rem;
           color: var(--primary);
           font-weight: 800;
+        }
+
+        .checkout-buttons-row {
+          display: flex;
+          gap: 1rem;
+          margin-top: 1.5rem;
+        }
+
+        .btn-simulate-submit {
+          padding: 1.1rem !important;
+          border-radius: 12px;
+          font-size: 1.05rem;
+          font-weight: 700;
+          background-color: var(--text-main);
+          color: var(--white);
+          border: 1px solid var(--text-main);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+        }
+
+        .btn-simulate-submit:hover {
+          background-color: var(--primary);
+          border-color: var(--primary);
         }
       `}} />
     </div>

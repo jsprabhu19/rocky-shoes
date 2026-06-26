@@ -4,13 +4,30 @@ import { Send, MapPin, Phone, Mail } from 'lucide-react';
 export default function Footer() {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubscribe = (e) => {
+  const handleSubscribe = async (e) => {
     e.preventDefault();
-    if (email.trim()) {
+    setErrorMsg('');
+    if (!email.trim()) return;
+
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to subscribe.');
+      }
+
       setSubscribed(true);
       setEmail('');
       setTimeout(() => setSubscribed(false), 5000);
+    } catch (err) {
+      setErrorMsg(err.message || 'Subscription failed.');
     }
   };
 
@@ -80,6 +97,9 @@ export default function Footer() {
           </form>
           {subscribed && (
             <p className="subscribe-success animate-fade">Thank you for subscribing!</p>
+          )}
+          {errorMsg && (
+            <p className="subscribe-error animate-fade" style={{ color: 'var(--primary)', fontSize: '0.85rem', fontWeight: '500', marginTop: '0.5rem' }}>{errorMsg}</p>
           )}
         </div>
       </div>

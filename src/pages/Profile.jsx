@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
-import { ShoppingBag, Settings, LogOut, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ShoppingBag, Settings, LogOut, CheckCircle, Clock, AlertTriangle, Truck } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function Profile() {
@@ -93,6 +94,27 @@ export default function Profile() {
       setAuthError(err.message || 'Action failed. Please check input details.');
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  // Self-serve return request
+  const handleRequestReturn = async (orderId) => {
+    if (!confirm('Are you sure you want to request a return for this order?')) return;
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ status: 'returning' })
+        .eq('id', orderId)
+        .select()
+        .single();
+      if (error) throw error;
+      
+      // Update local orders list state
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'returning' } : o));
+      alert('Return request submitted successfully. The admin will process your refund shortly.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to submit return request.');
     }
   };
 
@@ -469,6 +491,18 @@ export default function Profile() {
                         {order.status === 'pending' && (
                           <span className="order-badge status-pending"><Clock size={12} /> Pending</span>
                         )}
+                        {order.status === 'shipped' && (
+                          <span className="order-badge status-shipped"><Truck size={12} /> Shipped</span>
+                        )}
+                        {order.status === 'delivered' && (
+                          <span className="order-badge status-delivered"><CheckCircle size={12} /> Delivered</span>
+                        )}
+                        {order.status === 'returning' && (
+                          <span className="order-badge status-returning"><Clock size={12} /> Returning</span>
+                        )}
+                        {order.status === 'returned' && (
+                          <span className="order-badge status-returned"><CheckCircle size={12} /> Returned</span>
+                        )}
                         {(order.status === 'failed' || order.status === 'cancelled') && (
                           <span className="order-badge status-failed"><AlertTriangle size={12} /> {order.status}</span>
                         )}
@@ -495,8 +529,34 @@ export default function Profile() {
                     <hr className="order-box-divider" />
                     
                     <div className="order-box-footer flex-between">
-                      <span className="order-total-lbl">Total Amount</span>
-                      <span className="order-total-val">₹{order.total_amount.toLocaleString('en-IN')}</span>
+                      <span className="order-total-lbl">Total Paid: <strong>₹{order.total_amount.toLocaleString('en-IN')}</strong></span>
+                      <div className="order-actions-row">
+                        {(order.status === 'paid' || order.status === 'shipped' || order.status === 'delivered') && (
+                          <a 
+                            href={`/api/orders/${order.id}/invoice`} 
+                            download 
+                            className="btn btn-outline btn-xs btn-invoice"
+                          >
+                            Invoice PDF
+                          </a>
+                        )}
+                        {(order.status === 'shipped' || order.status === 'delivered') && (
+                          <Link 
+                            to={`/track/${order.id}`} 
+                            className="btn btn-outline btn-xs btn-track"
+                          >
+                            Track Order
+                          </Link>
+                        )}
+                        {order.status === 'delivered' && (
+                          <button 
+                            onClick={() => handleRequestReturn(order.id)} 
+                            className="btn btn-primary btn-xs btn-return"
+                          >
+                            Request Return
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -598,8 +658,19 @@ export default function Profile() {
           cursor: not-allowed;
           background-color: var(--border-light);
           color: var(--text-muted);
-          border-color: var(--border-light);
         }
+
+        .order-badge.status-shipped { background-color: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2); }
+        .order-badge.status-delivered { background-color: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .order-badge.status-returning { background-color: rgba(236, 72, 153, 0.1); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.2); }
+        .order-badge.status-returned { background-color: var(--border-light); color: var(--text-muted); border: 1px solid var(--border-light); }
+
+        .order-actions-row { display: flex; gap: 0.5rem; }
+        .btn-xs { padding: 0.35rem 0.75rem !important; font-size: 0.75rem !important; border-radius: 30px !important; }
+        .btn-invoice { border-color: var(--text-muted); color: var(--text-main); }
+        .btn-track { border-color: var(--primary); color: var(--primary); }
+        .btn-return { background-color: var(--text-main); color: var(--white); border-color: var(--text-main); }
+        .btn-return:hover { background-color: var(--primary); border-color: var(--primary); }
 
         .text-area-control {
           resize: none;

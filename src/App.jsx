@@ -18,6 +18,8 @@ import Profile from './pages/Profile';
 import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
 import ResetPassword from './pages/ResetPassword';
+import AdminDashboard from './pages/AdminDashboard';
+import OrderTracking from './pages/OrderTracking';
 
 export default function App() {
   const [supportTab, setSupportTab] = useState(null);
@@ -56,6 +58,8 @@ export default function App() {
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/order-success" element={<OrderSuccess />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/track/:orderId" element={<OrderTracking />} />
                 </Routes>
               </main>
 

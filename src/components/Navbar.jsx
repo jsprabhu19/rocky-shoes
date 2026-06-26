@@ -96,6 +96,16 @@ export default function Navbar() {
                       >
                         My Account & Orders
                       </Link>
+                      {profile?.role === 'admin' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="dropdown-item admin-item"
+                          style={{ color: 'var(--primary)', fontWeight: 'bold' }}
+                        >
+                          Admin Panel
+                        </Link>
+                      )}
                       <button onClick={handleLogout} className="dropdown-item logout-btn">
                         <LogOut size={16} /> Sign Out
                       </button>
@@ -175,6 +185,11 @@ export default function Navbar() {
               {user ? (
                 <>
                   <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="mobile-nav-link">My Account & Orders</Link>
+                  {profile?.role === 'admin' && (
+                    <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="mobile-nav-link" style={{ color: 'var(--primary)', fontWeight: 'bold' }}>
+                      Admin Panel
+                    </Link>
+                  )}
                   <button onClick={handleLogout} className="mobile-nav-link logout-btn-mobile">
                     <LogOut size={18} /> Sign Out
                   </button>
