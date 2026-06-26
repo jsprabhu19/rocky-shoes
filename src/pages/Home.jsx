@@ -3,11 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, ShieldCheck, Truck, RotateCcw, CreditCard } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import ProductCard from '../components/ProductCard';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function Home() {
   const navigate = useNavigate();
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useDocumentTitle('Premium Footwear E-Store');
 
   useEffect(() => {
     const fetchFeatured = async () => {

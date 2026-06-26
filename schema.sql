@@ -133,15 +133,30 @@ create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 6.5. STOCK DECREMENT RPC FUNCTION
-create or replace function public.decrement_product_stock(product_id_param uuid, qty_param integer)
-returns void as $$
+-- 6.5. INVENTORY STOCK DECREMENT TRIGGER
+create or replace function public.handle_payment_success()
+returns trigger as $$
+declare
+  item record;
 begin
-  update public.products
-  set stock = stock - qty_param
-  where id = product_id_param;
+  if new.status = 'paid' and (old.status is null or old.status <> 'paid') then
+    for item in 
+      select product_id, quantity 
+      from public.order_items 
+      where order_id = new.id
+    loop
+      update public.products
+      set stock = stock - item.quantity
+      where id = item.product_id;
+    end loop;
+  end if;
+  return new;
 end;
 $$ language plpgsql security definer;
+
+create or replace trigger on_order_paid
+  after update on public.orders
+  for each row execute procedure public.handle_payment_success();
 
 -- 7. SEED DATA FOR PRODUCTS
 insert into public.products (name, description, price, category, image_url, stock) values

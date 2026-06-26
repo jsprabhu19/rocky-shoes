@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import rateLimit from 'express-rate-limit';
 
 // Load environment variables from root directory
 dotenv.config();
@@ -40,6 +41,45 @@ if (process.env.VITE_RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
   console.warn("WARNING: Razorpay keys are missing. Payment operations will fail.");
 }
 
+// --- Middlewares ---
+
+// Rate Limiter for checkout transactions to prevent API spamming/abuse
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per window
+  message: { error: 'Too many requests from this IP. Please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Authentication middleware using Supabase Auth JWT tokens
+const authenticateUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // Allow guest checkouts to proceed without profile context
+      req.user = null;
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database service unavailable' });
+    }
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      return res.status(401).json({ error: 'Unauthorized session or expired token.' });
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(500).json({ error: 'Internal server authorization error' });
+  }
+};
+
 // Health Check API
 app.get('/api/health', (req, res) => {
   res.json({
@@ -49,10 +89,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API 1: Create Razorpay Order
-app.post('/api/payment/order', async (req, res) => {
+// API 1: Create Razorpay Order (Protected with Auth + Rate Limit)
+app.post('/api/payment/order', paymentLimiter, authenticateUser, async (req, res) => {
   try {
-    const { amount, currency = 'INR', receipt } = req.value || req.body;
+    const { amount, currency = 'INR', receipt } = req.body;
 
     if (!razorpay) {
       return res.status(500).json({ error: 'Razorpay integration is not configured on the server.' });
@@ -77,8 +117,8 @@ app.post('/api/payment/order', async (req, res) => {
   }
 });
 
-// API 2: Verify Razorpay Payment Signature and Update Order
-app.post('/api/payment/verify', async (req, res) => {
+// API 2: Verify Razorpay Payment Signature and Update Order (Protected with Auth + Rate Limit)
+app.post('/api/payment/verify', paymentLimiter, authenticateUser, async (req, res) => {
   try {
     const {
       razorpay_order_id,
@@ -111,7 +151,8 @@ app.post('/api/payment/verify', async (req, res) => {
       return res.status(400).json({ error: 'Invalid payment signature. Potential tampering.' });
     }
 
-    // Update order status to 'paid' in Supabase
+    // Update order status to 'paid' in Supabase.
+    // NOTE: An SQL Database trigger (on_order_paid) automatically handles product inventory deduction.
     if (supabase) {
       const { data, error } = await supabase
         .from('orders')
@@ -126,22 +167,6 @@ app.post('/api/payment/verify', async (req, res) => {
       if (error) {
         console.error('Error updating order in Supabase:', error);
         return res.status(500).json({ error: 'Payment verified, but database update failed.', details: error });
-      }
-
-      // Optionally deduct inventory stock for purchased products
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('product_id, quantity')
-        .eq('order_id', db_order_id);
-
-      if (items) {
-        for (const item of items) {
-          // Decrement stock
-          await supabase.rpc('decrement_product_stock', {
-            product_id_param: item.product_id,
-            qty_param: item.quantity
-          });
-        }
       }
 
       return res.json({ success: true, message: 'Payment verified and order updated.', order: data[0] });

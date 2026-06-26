@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { CheckCircle2, ShoppingBag, ArrowRight, User } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function OrderSuccess() {
   const location = useLocation();
   const [orderId, setOrderId] = useState('');
   const [orderDetail, setOrderDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useDocumentTitle('Order Confirmed');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
