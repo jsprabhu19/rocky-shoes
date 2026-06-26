@@ -14,8 +14,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS and JSON parsing
-app.use(cors({ origin: '*' }));
+// Enable CORS for frontend origins and JSON parsing
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  process.env.FRONTEND_URL // Vercel production URL (set in Render env vars)
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (e.g. server-to-server, curl, mobile apps)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true); // Allow all for now; tighten after verifying production
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Initialize Supabase Client with Service Role Key (to bypass RLS for payment verification)

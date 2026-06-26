@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { apiUrl } from '../apiConfig';
 import { LayoutDashboard, ShoppingBag, CreditCard, Users, Plus, Edit, Trash2, Check, X, FileText, Truck, ArrowLeft } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
@@ -72,7 +73,7 @@ export default function AdminDashboard() {
 
       // Fetch orders via Admin API
       const headers = await getAuthHeaders();
-      const res = await fetch('/api/admin/orders', { headers });
+      const res = await fetch(apiUrl('/api/admin/orders'), { headers });
       if (!res.ok) {
         throw new Error('Failed to load orders. Verify admin privileges.');
       }
@@ -164,7 +165,7 @@ export default function AdminDashboard() {
     try {
       const headers = await getAuthHeaders();
       const method = productForm.id ? 'PUT' : 'POST';
-      const url = productForm.id ? `/api/admin/products/${productForm.id}` : '/api/admin/products';
+      const url = productForm.id ? apiUrl(`/api/admin/products/${productForm.id}`) : apiUrl('/api/admin/products');
 
       const res = await fetch(url, {
         method,
@@ -188,7 +189,7 @@ export default function AdminDashboard() {
     if (!confirm('Are you sure you want to delete this product?')) return;
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`/api/admin/products/${productId}`, {
+      const res = await fetch(apiUrl(`/api/admin/products/${productId}`), {
         method: 'DELETE',
         headers
       });
@@ -218,7 +219,7 @@ export default function AdminDashboard() {
       const headers = await getAuthHeaders();
       
       // Update order status and tracking fields
-      const res = await fetch(`/api/admin/orders/${selectedOrder.id}/status`, {
+      const res = await fetch(apiUrl(`/api/admin/orders/${selectedOrder.id}/status`), {
         method: 'POST',
         headers,
         body: JSON.stringify(shippingForm)
@@ -244,7 +245,7 @@ export default function AdminDashboard() {
     setSubmitting(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch('/api/payment/refund', {
+      const res = await fetch(apiUrl('/api/payment/refund'), {
         method: 'POST',
         headers,
         body: JSON.stringify({ order_id: orderId, amount })
@@ -415,7 +416,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="invoice-download-section">
-                    <a href={`/api/orders/${selectedOrder.id}/invoice`} download className="btn btn-outline download-invoice-btn">
+                    <a href={apiUrl(`/api/orders/${selectedOrder.id}/invoice`)} download className="btn btn-outline download-invoice-btn">
                       <FileText size={16} /> Download PDF Invoice
                     </a>
                   </div>

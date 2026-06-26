@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { apiUrl } from '../apiConfig';
 import { Truck, CheckCircle2, Circle, Clock, Mail, ChevronRight, MapPin, Calendar, HelpCircle } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
@@ -32,7 +33,7 @@ export default function OrderTracking() {
       }
 
       const emailParam = emailToVerify ? `?email=${encodeURIComponent(emailToVerify)}` : '';
-      const res = await fetch(`/api/orders/${orderId}${emailParam}`, { headers });
+      const res = await fetch(apiUrl(`/api/orders/${orderId}${emailParam}`), { headers });
       
       const data = await res.json();
       if (!res.ok) {

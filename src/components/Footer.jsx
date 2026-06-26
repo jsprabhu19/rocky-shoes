@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Send, MapPin, Phone, Mail } from 'lucide-react';
+import { apiUrl } from '../apiConfig';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
@@ -12,7 +13,7 @@ export default function Footer() {
     if (!email.trim()) return;
 
     try {
-      const res = await fetch('/api/newsletter/subscribe', {
+      const res = await fetch(apiUrl('/api/newsletter/subscribe'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() })

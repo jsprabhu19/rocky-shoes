@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+import { apiUrl } from '../apiConfig';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Settings, LogOut, CheckCircle, Clock, AlertTriangle, Truck } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
@@ -533,7 +534,7 @@ export default function Profile() {
                       <div className="order-actions-row">
                         {(order.status === 'paid' || order.status === 'shipped' || order.status === 'delivered') && (
                           <a 
-                            href={`/api/orders/${order.id}/invoice`} 
+                            href={apiUrl(`/api/orders/${order.id}/invoice`)} 
                             download 
                             className="btn btn-outline btn-xs btn-invoice"
                           >

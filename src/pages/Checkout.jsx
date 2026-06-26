@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+import { apiUrl } from '../apiConfig';
 import { CreditCard, ShoppingBag, Truck, ChevronLeft, ArrowRight, Check } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
@@ -116,7 +117,7 @@ export default function Checkout() {
 
       // If simulate success is clicked directly
       if (forceSimulate) {
-        const simRes = await fetch('/api/payment/simulate-success', {
+        const simRes = await fetch(apiUrl('/api/payment/simulate-success'), {
           method: 'POST',
           headers: paymentHeaders,
           body: JSON.stringify({
@@ -134,7 +135,7 @@ export default function Checkout() {
         return;
       }
 
-      const res = await fetch('/api/payment/order', {
+      const res = await fetch(apiUrl('/api/payment/order'), {
         method: 'POST',
         headers: paymentHeaders,
         body: JSON.stringify({
@@ -166,7 +167,7 @@ export default function Checkout() {
           // runs on successful signature validation authorization
           try {
             setProcessing(true);
-            const verifyRes = await fetch('/api/payment/verify', {
+            const verifyRes = await fetch(apiUrl('/api/payment/verify'), {
               method: 'POST',
               headers: paymentHeaders,
               body: JSON.stringify({

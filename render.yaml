@@ -1,0 +1,25 @@
+# render.yaml — Render Blueprint for RockyShoes Backend API
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: rocky-shoes-api
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node server/index.js
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false # Set manually in Render dashboard
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: VITE_RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false # Your Vercel production URL (e.g. https://rocky-shoes.vercel.app)
+      - key: PORT
+        value: 10000 # Render assigns this automatically, but explicit is fine
