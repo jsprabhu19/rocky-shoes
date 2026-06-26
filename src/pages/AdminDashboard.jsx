@@ -32,6 +32,8 @@ export default function AdminDashboard() {
     stock: 10
   });
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   // Orders Manager State
   const [orders, setOrders] = useState([]);
@@ -106,6 +108,16 @@ export default function AdminDashboard() {
       loadDashboardData();
     }
   }, [user, profile]);
+
+  // Adjust current page if needed after loading products
+  useEffect(() => {
+    if (products.length > 0) {
+      const maxPage = Math.ceil(products.length / itemsPerPage);
+      if (currentPage > maxPage) {
+        setCurrentPage(maxPage);
+      }
+    }
+  }, [products, currentPage]);
 
   // Block non-admins
   if (!user || profile?.role !== 'admin') {
@@ -263,7 +275,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="admin-dashboard container animate-fade">
+    <div className={`admin-dashboard container animate-fade ${isProductModalOpen ? 'modal-open' : ''}`}>
       <div className="dashboard-header">
         <h1>Admin Control Desk</h1>
         <p>Manage product catalog, dispatch tracking, and customer transactions.</p>
@@ -330,44 +342,84 @@ export default function AdminDashboard() {
           {productsLoading ? (
             <div className="loading-spinner"><div className="spinner"></div></div>
           ) : (
-            <div className="table-responsive">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Thumbnail</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Stock</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map(p => (
-                    <tr key={p.id}>
-                      <td>
-                        <img src={p.image_url} alt={p.name} className="admin-table-thumb" />
-                      </td>
-                      <td><strong>{p.name}</strong></td>
-                      <td><span className="cat-tag">{p.category}</span></td>
-                      <td>₹{p.price.toLocaleString('en-IN')}</td>
-                      <td>
-                        <span className={`stock-badge ${p.stock <= 0 ? 'out' : p.stock < 5 ? 'low' : 'ok'}`}>
-                          {p.stock <= 0 ? 'Out of Stock' : `${p.stock} units`}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="action-buttons">
-                          <button onClick={() => handleProductEdit(p)} className="action-btn edit" title="Edit Product"><Edit size={14} /></button>
-                          <button onClick={() => handleProductDelete(p.id)} className="action-btn delete" title="Delete Product"><Trash2 size={14} /></button>
-                        </div>
-                      </td>
+            <>
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Thumbnail</th>
+                      <th>Name</th>
+                      <th>Category</th>
+                      <th>Price</th>
+                      <th>Stock</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {products.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(p => (
+                      <tr key={p.id}>
+                        <td>
+                          <img src={p.image_url} alt={p.name} className="admin-table-thumb" />
+                        </td>
+                        <td><strong>{p.name}</strong></td>
+                        <td><span className="cat-tag">{p.category}</span></td>
+                        <td>₹{p.price.toLocaleString('en-IN')}</td>
+                        <td>
+                          <span className={`stock-badge ${p.stock <= 0 ? 'out' : p.stock < 5 ? 'low' : 'ok'}`}>
+                            {p.stock <= 0 ? 'Out of Stock' : `${p.stock} units`}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="action-buttons">
+                            <button onClick={() => handleProductEdit(p)} className="action-btn edit" title="Edit Product"><Edit size={14} /></button>
+                            <button onClick={() => handleProductDelete(p.id)} className="action-btn delete" title="Delete Product"><Trash2 size={14} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Product Pagination controls */}
+              {Math.ceil(products.length / itemsPerPage) > 1 && (
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, products.length)} of {products.length} products
+                  </div>
+                  <div className="pagination-buttons">
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="page-btn"
+                    >
+                      Prev
+                    </button>
+                    {[...Array(Math.ceil(products.length / itemsPerPage))].map((_, index) => {
+                      const pageNum = index + 1;
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`page-btn ${currentPage === pageNum ? 'active' : ''}`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(products.length / itemsPerPage)))}
+                      disabled={currentPage === Math.ceil(products.length / itemsPerPage)}
+                      className="page-btn"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
+
         </div>
       )}
 
@@ -644,6 +696,7 @@ export default function AdminDashboard() {
       {/* Embedded Dashboard Styling */}
       <style dangerouslySetInnerHTML={{ __html: `
         .admin-dashboard { padding-top: 6.5rem; padding-bottom: 5rem; }
+        .admin-dashboard.modal-open { position: relative; z-index: 3100; }
         .dashboard-header { margin-bottom: 2.5rem; }
         .dashboard-header h1 { font-size: 2.2rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.5rem; }
         .dashboard-header p { color: var(--text-muted); font-size: 0.95rem; }
@@ -823,6 +876,7 @@ export default function AdminDashboard() {
           background-color: var(--white);
           width: 100%;
           max-width: 800px;
+          max-height: 85vh;
           border-radius: 24px;
           box-shadow: var(--shadow-lg);
           border: 1px solid var(--border-light);
@@ -861,8 +915,8 @@ export default function AdminDashboard() {
         }
 
         /* Modal Product CRUD Form */
-        .product-crud-card { max-width: 600px; width: 90%; height: auto !important; }
-        .product-crud-form { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; padding: 0 1.5rem 1.5rem 1.5rem; }
+        .product-crud-card { max-width: 600px; width: 90%; }
+        .product-crud-form { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; padding: 0 1.5rem 1.5rem 1.5rem; overflow-y: auto; flex: 1; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         @media (max-width: 576px) { .form-grid { grid-template-columns: 1fr; } }
         
@@ -882,6 +936,56 @@ export default function AdminDashboard() {
         .form-control.text-area { resize: vertical; border-radius: 16px; }
 
         .modal-footer { display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--border-light); padding-top: 1.25rem; margin-top: 1rem; }
+
+        /* Pagination Controls styling */
+        .pagination-container {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid var(--border-light);
+        }
+        .pagination-info {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+        .pagination-buttons {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+        .page-btn {
+          min-width: 32px;
+          height: 32px;
+          padding: 0 0.6rem;
+          border-radius: 8px;
+          border: 1px solid var(--border-light);
+          background-color: var(--white);
+          color: var(--text-muted);
+          font-size: 0.85rem;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: var(--transition-fast);
+        }
+        .page-btn:hover:not(:disabled) {
+          border-color: var(--primary);
+          color: var(--primary);
+          background-color: rgba(225, 29, 72, 0.05);
+        }
+        .page-btn.active {
+          background-color: var(--primary);
+          color: var(--white);
+          border-color: var(--primary);
+        }
+        .page-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
 
       `}} />
     </div>
