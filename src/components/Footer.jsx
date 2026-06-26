@@ -14,6 +14,11 @@ export default function Footer() {
     }
   };
 
+  const openSupport = (tabName, e) => {
+    e.preventDefault();
+    window.dispatchEvent(new CustomEvent('open-support-modal', { detail: tabName }));
+  };
+
   return (
     <footer className="footer-section">
       <div className="container footer-grid">
@@ -47,10 +52,10 @@ export default function Footer() {
         <div className="footer-col">
           <h4 className="footer-title">Support</h4>
           <ul className="footer-links">
-            <li><a href="#shipping">Shipping & Delivery</a></li>
-            <li><a href="#returns">Returns & Exchange</a></li>
-            <li><a href="#faqs">Store FAQs</a></li>
-            <li><a href="#contact">Contact Support</a></li>
+            <li><a href="#shipping" onClick={(e) => openSupport('shipping', e)}>Shipping & Delivery</a></li>
+            <li><a href="#returns" onClick={(e) => openSupport('returns', e)}>Returns & Exchange</a></li>
+            <li><a href="#faqs" onClick={(e) => openSupport('faqs', e)}>Store FAQs</a></li>
+            <li><a href="#contact" onClick={(e) => openSupport('about', e)}>Contact Support</a></li>
           </ul>
         </div>
 
@@ -83,8 +88,8 @@ export default function Footer() {
         <div className="container footer-bottom-inner">
           <p className="copyright-text">&copy; {new Date().getFullYear()} RockyShoes. All rights reserved.</p>
           <div className="footer-legal-links">
-            <a href="#privacy">Privacy Policy</a>
-            <a href="#terms">Terms of Service</a>
+            <a href="#privacy" onClick={(e) => openSupport('privacy', e)}>Privacy Policy</a>
+            <a href="#terms" onClick={(e) => openSupport('terms', e)}>Terms of Service</a>
           </div>
         </div>
       </div>

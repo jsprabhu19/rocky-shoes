@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, LogOut, Search, Menu, X, ArrowRight } from 'lucide-react';
+import { ShoppingBag, User, LogOut, Search, Menu, X, ArrowRight, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useWishlist } from '../context/WishlistContext';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const { totalQuantity, toggleCart, cartBounce } = useCart();
   const { user, profile, signOut } = useAuth();
+  const { wishlist } = useWishlist();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -107,6 +109,18 @@ export default function Navbar() {
                 </Link>
               )}
             </div>
+
+            {/* Wishlist Button */}
+            <Link
+              to="/shop?wishlist=true"
+              className="navbar-ctrl-btn"
+              title="Wishlist"
+            >
+              <Heart size={20} />
+              {wishlist.length > 0 && (
+                <span className="cart-badge animate-fade" style={{ backgroundColor: 'var(--text-main)' }}>{wishlist.length}</span>
+              )}
+            </Link>
 
             {/* Cart Button */}
             <button

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 import { ShoppingBag, Settings, LogOut, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function Profile() {
-  const { user, profile, signUp, signIn, signOut, updateProfile, loading } = useAuth();
+  const { user, profile, signUp, signIn, signOut, resetPassword, updateProfile, loading } = useAuth();
   
   // Auth Form State
   const [authTab, setAuthTab] = useState('signin');
@@ -13,6 +14,9 @@ export default function Profile() {
   const [fullName, setFullName] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+
+  useDocumentTitle('Customer Portal');
 
   // Profile Form State
   const [formName, setFormName] = useState('');
@@ -65,7 +69,7 @@ export default function Profile() {
     }
   }, [user]);
 
-  // Sign In / Sign Up handler
+  // Sign In / Sign Up / Forgot Password handler
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -75,14 +79,18 @@ export default function Profile() {
       if (authTab === 'signin') {
         const { error } = await signIn(email, password);
         if (error) throw error;
-      } else {
+      } else if (authTab === 'signup') {
         if (!fullName.trim()) throw new Error('Full Name is required.');
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
         alert("Account created successfully! Welcome to RockyShoes.");
+      } else if (authTab === 'forgot') {
+        const { error } = await resetPassword(email);
+        if (error) throw error;
+        setForgotSuccess(true);
       }
     } catch (err) {
-      setAuthError(err.message || 'Authentication failed. Please check details.');
+      setAuthError(err.message || 'Action failed. Please check input details.');
     } finally {
       setAuthLoading(false);
     }
@@ -126,69 +134,112 @@ export default function Profile() {
     return (
       <div className="auth-container animate-fade">
         <div className="auth-card">
-          <div className="auth-tabs">
-            <button
-              onClick={() => { setAuthTab('signin'); setAuthError(''); }}
-              className={`auth-tab-btn ${authTab === 'signin' ? 'active' : ''}`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setAuthTab('signup'); setAuthError(''); }}
-              className={`auth-tab-btn ${authTab === 'signup' ? 'active' : ''}`}
-            >
-              Register
-            </button>
-          </div>
+          {authTab !== 'forgot' && (
+            <div className="auth-tabs">
+              <button
+                onClick={() => { setAuthTab('signin'); setAuthError(''); }}
+                className={`auth-tab-btn ${authTab === 'signin' ? 'active' : ''}`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => { setAuthTab('signup'); setAuthError(''); }}
+                className={`auth-tab-btn ${authTab === 'signup' ? 'active' : ''}`}
+              >
+                Register
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleAuthSubmit} className="auth-form">
             <h2 className="auth-title">
-              {authTab === 'signin' ? 'Welcome Back To Rocky' : 'Join RockyShoes E-Store'}
+              {authTab === 'signin' && 'Welcome Back To Rocky'}
+              {authTab === 'signup' && 'Join RockyShoes E-Store'}
+              {authTab === 'forgot' && 'Reset Your Password'}
             </h2>
             
             {authError && <div className="auth-error-banner">{authError}</div>}
 
-            {authTab === 'signup' && (
-              <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Srinivasa Prabhu"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="form-control"
-                />
+            {forgotSuccess ? (
+              <div className="forgot-success-pane animate-fade">
+                <p>A recovery link has been sent to **{email}**. Please click the link inside the email to set your new password.</p>
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab('signin'); setForgotSuccess(false); setEmail(''); }}
+                  className="btn btn-secondary btn-block"
+                  style={{ marginTop: '1rem' }}
+                >
+                  Back to Sign In
+                </button>
               </div>
+            ) : (
+              <>
+                {authTab === 'signup' && (
+                  <div className="form-group">
+                    <label className="form-label">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Srinivasa Prabhu"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="form-control"
+                    />
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="form-control"
+                  />
+                </div>
+
+                {authTab !== 'forgot' && (
+                  <div className="form-group">
+                    <div className="flex-between">
+                      <label className="form-label">Password</label>
+                      {authTab === 'signin' && (
+                        <button
+                          type="button"
+                          onClick={() => { setAuthTab('forgot'); setAuthError(''); }}
+                          className="btn-forgot-pwd-link"
+                        >
+                          Forgot Password?
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Min 6 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="form-control"
+                    />
+                  </div>
+                )}
+
+                <button type="submit" disabled={authLoading} className="btn btn-primary btn-block btn-auth-submit">
+                  {authLoading ? 'Verifying...' : authTab === 'signin' ? 'Sign In' : authTab === 'signup' ? 'Create Account' : 'Send Reset Link'}
+                </button>
+
+                {authTab === 'forgot' && (
+                  <button
+                    type="button"
+                    onClick={() => { setAuthTab('signin'); setAuthError(''); }}
+                    className="btn-back-signin-text"
+                  >
+                    Back to Sign In
+                  </button>
+                )}
+              </>
             )}
-
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                required
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="form-control"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input
-                type="password"
-                required
-                placeholder="Min 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="form-control"
-              />
-            </div>
-
-            <button type="submit" disabled={authLoading} className="btn btn-primary btn-block btn-auth-submit">
-              {authLoading ? 'Verifying...' : authTab === 'signin' ? 'Sign In' : 'Create Account'}
-            </button>
           </form>
         </div>
 
@@ -270,6 +321,39 @@ export default function Profile() {
             font-size: 1rem;
             border-radius: 12px;
             margin-top: 0.5rem;
+          }
+          .btn-forgot-pwd-link {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-decoration: underline;
+          }
+          .btn-forgot-pwd-link:hover {
+            color: var(--primary);
+          }
+          .btn-back-signin-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 1rem;
+            width: 100%;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-decoration: underline;
+          }
+          .btn-back-signin-text:hover {
+            color: var(--primary);
+          }
+          .forgot-success-pane {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            text-align: center;
           }
         `}} />
       </div>

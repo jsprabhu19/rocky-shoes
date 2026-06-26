@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { SlidersHorizontal, ArrowUpDown, Search, RotateCcw } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { useWishlist } from '../context/WishlistContext';
 import ProductCard from '../components/ProductCard';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function Shop() {
   const location = useLocation();
@@ -10,12 +12,16 @@ export default function Shop() {
   // All products from DB
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isInWishlist } = useWishlist();
 
   // Filters State
   const [searchFilter, setSearchFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [priceRange, setPriceRange] = useState(15000);
   const [sortOption, setSortOption] = useState('default');
+  const [wishlistOnly, setWishlistOnly] = useState(false);
+
+  useDocumentTitle(wishlistOnly ? 'Your Wishlist' : 'Shop Collections');
   
   // Mobile filter drawer visibility
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -25,6 +31,7 @@ export default function Shop() {
     const params = new URLSearchParams(location.search);
     const catParam = params.get('category');
     const searchParam = params.get('search');
+    const wishParam = params.get('wishlist');
 
     if (catParam) {
       setCategoryFilter(catParam);
@@ -37,6 +44,8 @@ export default function Shop() {
     } else {
       setSearchFilter('');
     }
+
+    setWishlistOnly(wishParam === 'true');
   }, [location.search]);
 
   // Fetch all products on mount
@@ -74,7 +83,10 @@ export default function Shop() {
       // Price matching
       const matchesPrice = product.price <= priceRange;
 
-      return matchesSearch && matchesCategory && matchesPrice;
+      // Wishlist matching
+      const matchesWishlist = !wishlistOnly || isInWishlist(product.id);
+
+      return matchesSearch && matchesCategory && matchesPrice && matchesWishlist;
     })
     .sort((a, b) => {
       if (sortOption === 'price-asc') return a.price - b.price;
@@ -96,8 +108,14 @@ export default function Shop() {
       <div className="container shop-container">
         {/* Page Title */}
         <div className="shop-header">
-          <h1 className="shop-title-text">Rocky Footwear Catalog</h1>
-          <p className="shop-subtitle-text">Showing {filteredProducts.length} Premium Shoes</p>
+          <h1 className="shop-title-text">
+            {wishlistOnly ? 'Your Saved Footwear' : 'Rocky Footwear Catalog'}
+          </h1>
+          <p className="shop-subtitle-text">
+            {wishlistOnly 
+              ? `You have saved ${filteredProducts.length} shoe models` 
+              : `Showing ${filteredProducts.length} Premium Shoes`}
+          </p>
         </div>
 
         {/* Layout Row */}

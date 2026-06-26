@@ -3,14 +3,20 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Heart, Shield, RotateCcw, Truck, Minus, Plus } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import ProductCard from '../components/ProductCard';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart, toggleCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   const [product, setProduct] = useState(null);
+  const wishlisted = product ? isInWishlist(product.id) : false;
+
+  useDocumentTitle(product ? `${product.name} - Premium Shoe` : 'Product Details');
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -179,8 +185,12 @@ export default function ProductDetail() {
               >
                 <ShoppingBag size={20} /> Add To Shopping Bag
               </button>
-              <button className="btn-wishlist-detail" title="Add to Wishlist">
-                <Heart size={20} />
+              <button
+                onClick={() => toggleWishlist(product)}
+                className={`btn-wishlist-detail ${wishlisted ? 'active' : ''}`}
+                title={wishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
+              >
+                <Heart size={20} fill={wishlisted ? "var(--primary)" : "none"} />
               </button>
             </div>
 
@@ -501,6 +511,12 @@ export default function ProductDetail() {
         }
 
         .btn-wishlist-detail:hover {
+          border-color: var(--primary);
+          color: var(--primary);
+          background-color: var(--primary-light);
+        }
+
+        .btn-wishlist-detail.active {
           border-color: var(--primary);
           color: var(--primary);
           background-color: var(--primary-light);

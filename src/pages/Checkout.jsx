@@ -4,11 +4,14 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 import { CreditCard, ShoppingBag, Truck, ChevronLeft, ArrowRight } from 'lucide-react';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart, totalPrice, clearCart } = useCart();
   const { user, profile } = useAuth();
+
+  useDocumentTitle('Secure Checkout');
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -99,10 +102,16 @@ export default function Checkout() {
       if (itemsError) throw itemsError;
 
       // 3. Create Order on Razorpay via Payment Server
-      const backendUrl = ''; // Configured via Vite proxy to route directly to Express
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const paymentHeaders = { 'Content-Type': 'application/json' };
+      if (token) {
+        paymentHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/payment/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: paymentHeaders,
         body: JSON.stringify({
           amount: totalPrice,
           receipt: dbOrderId
@@ -134,7 +143,7 @@ export default function Checkout() {
             setProcessing(true);
             const verifyRes = await fetch('/api/payment/verify', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: paymentHeaders,
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,

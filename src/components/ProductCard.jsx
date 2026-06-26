@@ -1,10 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const wishlisted = isInWishlist(product.id);
   const isOutOfStock = product.stock <= 0;
 
   // Format category name for human consumption
@@ -19,6 +22,15 @@ export default function ProductCard({ product }) {
       <span className="product-category-badge">
         {formatCategory(product.category)}
       </span>
+
+      {/* Wishlist Heart Icon */}
+      <button
+        onClick={() => toggleWishlist(product)}
+        className={`product-card-wishlist-btn ${wishlisted ? 'active' : ''}`}
+        title={wishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
+      >
+        <Heart size={16} fill={wishlisted ? "var(--primary)" : "none"} />
+      </button>
 
       {/* Product Image Container */}
       <Link to={`/product/${product.id}`} className="product-image-link">
@@ -101,6 +113,33 @@ export default function ProductCard({ product }) {
           border: 1px solid var(--border-light);
           z-index: 5;
           box-shadow: var(--shadow-sm);
+        }
+
+        .product-card-wishlist-btn {
+          position: absolute;
+          top: 15px;
+          right: 15px;
+          background-color: rgba(255, 255, 255, 0.9);
+          color: var(--text-muted);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--border-light);
+          z-index: 5;
+          box-shadow: var(--shadow-sm);
+          transition: var(--transition-smooth);
+        }
+        .product-card-wishlist-btn:hover {
+          color: var(--primary);
+          background-color: var(--white);
+          transform: scale(1.1);
+        }
+        .product-card-wishlist-btn.active {
+          color: var(--primary);
+          background-color: var(--white);
         }
 
         .product-image-link {
