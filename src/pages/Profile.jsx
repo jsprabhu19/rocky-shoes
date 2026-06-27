@@ -31,6 +31,14 @@ export default function Profile() {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
+  // Return Request Wizard State
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [returnOrder, setReturnOrder] = useState(null);
+  const [selectedReturnItems, setSelectedReturnItems] = useState({});
+  const [returnReason, setReturnReason] = useState('size_issue');
+  const [returnComments, setReturnComments] = useState('');
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+
   // Sync profile details into form state
   useEffect(() => {
     if (profile) {
@@ -98,24 +106,67 @@ export default function Profile() {
     }
   };
 
-  // Self-serve return request
-  const handleRequestReturn = async (orderId) => {
-    if (!confirm('Are you sure you want to request a return for this order?')) return;
+  const openReturnModal = (order) => {
+    setReturnOrder(order);
+    const initialSelection = {};
+    order.order_items?.forEach(item => {
+      initialSelection[item.product_id] = true;
+    });
+    setSelectedReturnItems(initialSelection);
+    setReturnReason('size_issue');
+    setReturnComments('');
+    setIsReturnModalOpen(true);
+  };
+
+  const handleReturnSubmit = async (e) => {
+    e.preventDefault();
+    
+    const itemsToReturn = returnOrder.order_items
+      .filter(item => selectedReturnItems[item.product_id])
+      .map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        size: item.size || 'N/A'
+      }));
+
+    if (itemsToReturn.length === 0) {
+      alert('Please select at least one item to return.');
+      return;
+    }
+
+    setReturnSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .update({ status: 'returning' })
-        .eq('id', orderId)
-        .select()
-        .single();
-      if (error) throw error;
-      
-      // Update local orders list state
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'returning' } : o));
-      alert('Return request submitted successfully. The admin will process your refund shortly.');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const headers = { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+
+      const res = await fetch(apiUrl('/api/orders/return-request'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          order_id: returnOrder.id,
+          items: itemsToReturn,
+          reason: returnReason,
+          comments: returnComments
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit return request.');
+      }
+
+      setOrders(prev => prev.map(o => o.id === returnOrder.id ? { ...o, status: 'returning' } : o));
+      setIsReturnModalOpen(false);
+      alert('Return request submitted successfully. The admin will review and process your refund.');
     } catch (err) {
       console.error(err);
-      alert('Failed to submit return request.');
+      alert(err.message || 'Failed to submit return request.');
+    } finally {
+      setReturnSubmitting(false);
     }
   };
 
@@ -551,7 +602,7 @@ export default function Profile() {
                         )}
                         {order.status === 'delivered' && (
                           <button 
-                            onClick={() => handleRequestReturn(order.id)} 
+                            onClick={() => openReturnModal(order)} 
                             className="btn btn-primary btn-xs btn-return"
                           >
                             Request Return
@@ -566,6 +617,83 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Return Request Wizard Modal */}
+      {isReturnModalOpen && returnOrder && (
+        <div className="support-modal-overlay product-crud-modal animate-fade" style={{ zIndex: 4000 }}>
+          <div className="support-modal-backdrop" onClick={() => setIsReturnModalOpen(false)}></div>
+          <div className="support-modal-card animate-slide-up product-crud-card" style={{ maxWidth: '550px' }}>
+            <div className="support-modal-header">
+              <h3>Return Request Wizard</h3>
+              <button type="button" onClick={() => setIsReturnModalOpen(false)} className="support-close-btn" style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+            </div>
+            
+            <form onSubmit={handleReturnSubmit} className="product-crud-form" style={{ padding: '1.5rem' }}>
+              <p className="return-disclaimer" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                Order ID: #{returnOrder.id.slice(0, 8).toUpperCase()}
+              </p>
+
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Select Items to Return</label>
+                <div className="return-items-selection-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--bg-subtle)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-light)', maxHeight: '180px', overflowY: 'auto' }}>
+                  {returnOrder.order_items?.map(item => (
+                    <label key={item.id} className="return-item-checkbox-row" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!selectedReturnItems[item.product_id]}
+                        onChange={(e) => setSelectedReturnItems({
+                          ...selectedReturnItems,
+                          [item.product_id]: e.target.checked
+                        })}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                      />
+                      <span style={{ fontWeight: '600' }}>{item.products?.name}</span>
+                      <span style={{ color: 'var(--text-muted)' }}> (Qty: {item.quantity} | Size: UK {item.size || 'N/A'})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label">Reason for Return</label>
+                <select
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}
+                  required
+                >
+                  <option value="size_issue">Size issue (too small / too big)</option>
+                  <option value="wrong_item">Received wrong shoe/color</option>
+                  <option value="damaged">Shoe arrived damaged/defective</option>
+                  <option value="quality_issue">Item quality not as expected</option>
+                  <option value="other">Other reason</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label">Return Comments / Details</label>
+                <textarea
+                  placeholder="Explain why you are returning this item..."
+                  value={returnComments}
+                  onChange={(e) => setReturnComments(e.target.value)}
+                  className="form-control text-area-control"
+                  rows="3"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-light)', resize: 'vertical' }}
+                  required
+                />
+              </div>
+
+              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+                <button type="button" onClick={() => setIsReturnModalOpen(false)} className="btn btn-secondary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.9rem', borderRadius: '8px' }}>Cancel</button>
+                <button type="submit" disabled={returnSubmitting} className="btn btn-primary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.9rem', borderRadius: '8px' }}>
+                  {returnSubmitting ? 'Submitting...' : 'Submit Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Embedded CSS for Profile & Dashboard */}
       <style dangerouslySetInnerHTML={{ __html: `

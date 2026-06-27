@@ -1,109 +1,76 @@
 -- =========================================================================
--- RockyShoes Database Update & Patch Script
--- Execute this in the Supabase SQL Editor to apply policies, triggers, and
--- logic to existing tables without dropping/losing database tables or data.
+-- RockyShoes Database Patch: Return Requests & Support Tickets
+-- Execute this script in the Supabase SQL Editor to update your tables.
 -- =========================================================================
 
--- 1. PROFILE TRIGGERS & POLICIES
-alter table public.profiles enable row level security;
+-- 1. CREATE SUPPORT TICKETS TABLE
+create table if not exists public.support_tickets (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  order_id uuid references public.orders(id) on delete set null,
+  category text not null check (category in ('refund', 'return', 'delivery', 'payment', 'inquiry', 'other')),
+  subject text not null,
+  message text not null,
+  status text default 'open' check (status in ('open', 'resolved', 'closed')),
+  resolution_notes text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
-drop policy if exists "Allow public read access to profiles" on public.profiles;
-create policy "Allow public read access to profiles"
-  on public.profiles for select
-  using (true);
+-- Enable Row Level Security (RLS)
+alter table public.support_tickets enable row level security;
 
-drop policy if exists "Allow users to update their own profile" on public.profiles;
-create policy "Allow users to update their own profile"
-  on public.profiles for update
-  using (auth.uid() = id);
+-- Policies for support_tickets
+drop policy if exists "Users can insert their own support tickets" on public.support_tickets;
+create policy "Users can insert their own support tickets"
+  on public.support_tickets for insert
+  with check (auth.uid() = user_id);
 
-drop policy if exists "Allow users to insert their own profile" on public.profiles;
-create policy "Allow users to insert their own profile"
-  on public.profiles for insert
-  with check (auth.uid() = id);
-
--- Trigger function for auth.users signup
-create or replace function public.handle_new_user()
-returns trigger as $$
-begin
-  insert into public.profiles (id, email, full_name, updated_at)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', ''),
-    now()
-  );
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
-
--- 2. ORDERS RLS POLICIES
-alter table public.orders enable row level security;
-
-drop policy if exists "Allow public to create orders (guest checkout)" on public.orders;
-create policy "Allow public to create orders (guest checkout)"
-  on public.orders for insert
-  with check (true);
-
-drop policy if exists "Allow users to view their own orders" on public.orders;
-create policy "Allow users to view their own orders"
-  on public.orders for select
+drop policy if exists "Users can view their own support tickets" on public.support_tickets;
+create policy "Users can view their own support tickets"
+  on public.support_tickets for select
   using (auth.uid() = user_id);
 
-drop policy if exists "Allow users to update their own pending orders" on public.orders;
-create policy "Allow users to update their own pending orders"
-  on public.orders for update
-  using (auth.uid() = user_id);
-
-
--- 3. ORDER ITEMS RLS POLICIES
-alter table public.order_items enable row level security;
-
-drop policy if exists "Allow public to insert order items" on public.order_items;
-create policy "Allow public to insert order items"
-  on public.order_items for insert
-  with check (true);
-
-drop policy if exists "Allow users to view their own order items" on public.order_items;
-create policy "Allow users to view their own order items"
-  on public.order_items for select
+drop policy if exists "Admins can manage all support tickets" on public.support_tickets;
+create policy "Admins can manage all support tickets"
+  on public.support_tickets for all
   using (
     exists (
-      select 1 from public.orders
-      where orders.id = order_items.order_id
-      and orders.user_id = auth.uid()
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'admin'
     )
   );
 
 
--- 4. INVENTORY STOCK DECREMENT TRIGGER
-create or replace function public.handle_payment_success()
-returns trigger as $$
-declare
-  item record;
-begin
-  if new.status = 'paid' and (old.status is null or old.status <> 'paid') then
-    for item in 
-      select product_id, quantity 
-      from public.order_items 
-      where order_id = new.id
-    loop
-      update public.products
-      set stock = stock - item.quantity
-      where id = item.product_id;
-    end loop;
-  end if;
-  return new;
-end;
-$$ language plpgsql security definer;
+-- 2. CREATE RETURN REQUESTS TABLE
+create table if not exists public.return_requests (
+  id uuid default gen_random_uuid() primary key,
+  order_id uuid references public.orders(id) on delete cascade unique not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  items jsonb not null, -- Array of returned items: [{product_id, quantity, size}]
+  reason text not null check (reason in ('size_issue', 'wrong_item', 'damaged', 'quality_issue', 'other')),
+  comments text,
+  status text default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
-drop trigger if exists on_order_paid on public.orders;
-create trigger on_order_paid
-  after update on public.orders
-  for each row execute procedure public.handle_payment_success();
+-- Enable Row Level Security (RLS)
+alter table public.return_requests enable row level security;
+
+-- Policies for return_requests
+drop policy if exists "Users can manage their own return requests" on public.return_requests;
+create policy "Users can manage their own return requests"
+  on public.return_requests for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Admins can manage all return requests" on public.return_requests;
+create policy "Admins can manage all return requests"
+  on public.return_requests for all
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'admin'
+    )
+  );

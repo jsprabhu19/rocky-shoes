@@ -367,6 +367,14 @@ app.post('/api/payment/refund', requireAdmin, async (req, res) => {
       .select()
       .single();
 
+    if (!updateError) {
+      // Auto-approve the return request if one exists for this order
+      await supabase
+        .from('return_requests')
+        .update({ status: 'approved' })
+        .eq('order_id', order_id);
+    }
+
     if (updateError) {
       throw updateError;
     }
@@ -805,6 +813,193 @@ app.get('/api/orders/:id', async (req, res) => {
     res.status(500).json({ error: error.message || 'Failed to retrieve order' });
   }
 });
+
+// API 11: File Support Ticket (Protected)
+app.post('/api/support/tickets', authenticateUser, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required to file support tickets.' });
+    }
+    if (!supabase) return res.status(500).json({ error: 'Database service unavailable' });
+
+    const { order_id, category, subject, message } = req.body;
+    if (!category || !subject || !message) {
+      return res.status(400).json({ error: 'Category, subject, and message are required.' });
+    }
+
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .insert({
+        user_id: req.user.id,
+        order_id: order_id || null,
+        category,
+        subject,
+        message,
+        status: 'open'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating support ticket:', error);
+    res.status(500).json({ error: error.message || 'Failed to file support ticket' });
+  }
+});
+
+// API 12: List User's Support Tickets (Protected)
+app.get('/api/support/tickets', authenticateUser, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required to view support tickets.' });
+    }
+    if (!supabase) return res.status(500).json({ error: 'Database service unavailable' });
+
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching support tickets:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch support tickets' });
+  }
+});
+
+// API 13: List All Support Tickets (Admin Protected)
+app.get('/api/admin/tickets', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Database service unavailable' });
+
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select(`
+        *,
+        profiles (full_name, email)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching admin support tickets:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch support tickets' });
+  }
+});
+
+// API 14: Resolve Support Ticket (Admin Protected)
+app.post('/api/admin/tickets/:id/resolve', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { resolution_notes, status = 'resolved' } = req.body;
+    if (!supabase) return res.status(500).json({ error: 'Database service unavailable' });
+
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .update({
+        status,
+        resolution_notes
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error resolving support ticket:', error);
+    res.status(500).json({ error: error.message || 'Failed to resolve support ticket' });
+  }
+});
+
+// API 15: Create Self-Serve Return Request (Protected)
+app.post('/api/orders/return-request', authenticateUser, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required to request a return.' });
+    }
+    const { order_id, items, reason, comments } = req.body;
+    if (!order_id || !items || !reason) {
+      return res.status(400).json({ error: 'Order ID, items, and reason are required.' });
+    }
+    if (!supabase) return res.status(500).json({ error: 'Database service unavailable' });
+
+    // 1. Fetch order to verify details and current status is 'delivered'
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', order_id)
+      .single();
+
+    if (orderErr || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized to request return for this order.' });
+    }
+
+    if (order.status !== 'delivered') {
+      return res.status(400).json({ error: 'Only delivered orders are eligible for return.' });
+    }
+
+    // 2. Insert return request record
+    const { data: retReq, error: retErr } = await supabase
+      .from('return_requests')
+      .insert({
+        order_id,
+        user_id: req.user.id,
+        items,
+        reason,
+        comments,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (retErr) throw retErr;
+
+    // 3. Set order status to 'returning'
+    const { error: updErr } = await supabase
+      .from('orders')
+      .update({ status: 'returning' })
+      .eq('id', order_id);
+
+    if (updErr) throw updErr;
+
+    res.json({ success: true, message: 'Return request filed successfully.', returnRequest: retReq });
+  } catch (error) {
+    console.error('Error requesting return:', error);
+    res.status(500).json({ error: error.message || 'Failed to file return request.' });
+  }
+});
+
+// API 16: List All Return Requests (Admin Protected)
+app.get('/api/admin/returns', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Database service unavailable' });
+
+    const { data, error } = await supabase
+      .from('return_requests')
+      .select(`
+        *,
+        profiles (full_name, email),
+        orders (total_amount, status)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching return requests:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch return requests' });
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`RockyShoes Payment Server running on http://localhost:${PORT}`);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../apiConfig';
-import { LayoutDashboard, ShoppingBag, CreditCard, Users, Plus, Edit, Trash2, Check, X, FileText, Truck, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, CreditCard, Users, Plus, Edit, Trash2, Check, X, FileText, Truck, ArrowLeft, RotateCcw, MessageSquare } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function AdminDashboard() {
@@ -48,6 +48,14 @@ export default function AdminDashboard() {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // Support & Help Desk Admin State
+  const [adminTickets, setAdminTickets] = useState([]);
+  const [adminTicketsLoading, setAdminTicketsLoading] = useState(false);
+  const [adminReturns, setAdminReturns] = useState([]);
+  const [adminReturnsLoading, setAdminReturnsLoading] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+
   // Fetch Session Headers helper
   const getAuthHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -82,6 +90,24 @@ export default function AdminDashboard() {
       const orderData = await res.json();
       setOrders(orderData || []);
 
+      // Fetch support tickets
+      setAdminTicketsLoading(true);
+      const ticketsRes = await fetch(apiUrl('/api/admin/tickets'), { headers });
+      if (ticketsRes.ok) {
+        const ticketData = await ticketsRes.json();
+        setAdminTickets(ticketData || []);
+      }
+      setAdminTicketsLoading(false);
+
+      // Fetch return requests
+      setAdminReturnsLoading(true);
+      const returnsRes = await fetch(apiUrl('/api/admin/returns'), { headers });
+      if (returnsRes.ok) {
+        const returnsData = await returnsRes.json();
+        setAdminReturns(returnsData || []);
+      }
+      setAdminReturnsLoading(false);
+
       // Calculate Stats
       const paidOrders = orderData.filter(o => o.status === 'paid' || o.status === 'shipped' || o.status === 'delivered');
       const sales = paidOrders.reduce((acc, curr) => acc + parseFloat(curr.total_amount), 0);
@@ -100,6 +126,8 @@ export default function AdminDashboard() {
     } finally {
       setProductsLoading(false);
       setOrdersLoading(false);
+      setAdminTicketsLoading(false);
+      setAdminReturnsLoading(false);
     }
   };
 
@@ -274,6 +302,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResolveTicket = async (e) => {
+    e.preventDefault();
+    if (!resolutionNotes.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(apiUrl(`/api/admin/tickets/${selectedTicket.id}/resolve`), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          resolution_notes: resolutionNotes.trim(),
+          status: 'resolved'
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to resolve support ticket.');
+      
+      alert('Support ticket resolved successfully.');
+      setSelectedTicket(null);
+      setResolutionNotes('');
+      loadDashboardData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className={`admin-dashboard container animate-fade ${isProductModalOpen ? 'modal-open' : ''}`}>
       <div className="dashboard-header">
@@ -313,19 +370,24 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Main Panel Layout */}
       <div className="dashboard-tabs">
         <button 
-          onClick={() => { setActiveTab('overview'); setSelectedOrder(null); }} 
+          onClick={() => { setActiveTab('overview'); setSelectedOrder(null); setSelectedTicket(null); }} 
           className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
         >
           Overview & Products
         </button>
         <button 
-          onClick={() => { setActiveTab('orders'); }} 
+          onClick={() => { setActiveTab('orders'); setSelectedTicket(null); }} 
           className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
         >
           Customer Orders ({orders.length})
+        </button>
+        <button 
+          onClick={() => { setActiveTab('support'); setSelectedOrder(null); }} 
+          className={`tab-btn ${activeTab === 'support' ? 'active' : ''}`}
+        >
+          Help & Support ({adminTickets.length})
         </button>
       </div>
 
@@ -600,6 +662,217 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Help & Support Tab View */}
+      {activeTab === 'support' && (
+        <div className="dashboard-pane animate-fade">
+          {selectedTicket ? (
+            /* Ticket Details and Resolution Form */
+            <div className="order-operations-panel animate-slide-up" style={{ maxWidth: '600px', margin: 'auto' }}>
+              <button onClick={() => setSelectedTicket(null)} className="btn btn-outline back-btn" style={{ marginBottom: '1.5rem' }}>
+                <ArrowLeft size={16} /> Back to Support Desk
+              </button>
+
+              <div className="status-management-card" style={{ padding: '2rem', backgroundColor: 'var(--bg-subtle)', borderRadius: '20px', border: '1px solid var(--border-light)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span className={`status-badge ${selectedTicket.status}`} style={{ fontSize: '0.75rem', fontWeight: '800', padding: '0.2rem 0.6rem', borderRadius: '30px', textTransform: 'uppercase', backgroundColor: selectedTicket.status === 'open' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: selectedTicket.status === 'open' ? '#f59e0b' : '#10b981' }}>
+                    {selectedTicket.status}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Filed: {new Date(selectedTicket.created_at).toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <h3 style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '0.5rem' }}>{selectedTicket.subject}</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                  Customer: <strong>{selectedTicket.profiles?.full_name || 'Rocky Customer'}</strong> ({selectedTicket.profiles?.email || 'N/A'})
+                </p>
+
+                {selectedTicket.order_id && (
+                  <div style={{ padding: '0.75rem', backgroundColor: 'var(--white)', borderRadius: '8px', border: '1px solid var(--border-light)', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--primary)' }}>
+                      Linked Order: #{selectedTicket.order_id.slice(0, 8).toUpperCase()}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const ord = orders.find(o => o.id === selectedTicket.order_id);
+                        if (ord) {
+                          setActiveTab('orders');
+                          openOrderDetails(ord);
+                        } else {
+                          alert('Order details not found.');
+                        }
+                      }}
+                      className="btn btn-outline"
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px' }}
+                    >
+                      Manage Order
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '1.5rem', backgroundColor: 'var(--white)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-light)', minHeight: '100px' }}>
+                  <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Customer Message:</h4>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{selectedTicket.message}</p>
+                </div>
+
+                {selectedTicket.status === 'resolved' && selectedTicket.resolution_notes && (
+                  <div style={{ marginBottom: '1.5rem', backgroundColor: 'rgba(16, 185, 129, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                    <h4 style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--success)', marginBottom: '0.5rem' }}>Resolution Notes:</h4>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.5' }}>{selectedTicket.resolution_notes}</p>
+                  </div>
+                )}
+
+                {selectedTicket.status === 'open' && (
+                  <form onSubmit={handleResolveTicket} className="status-form" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '1.5rem' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)', marginBottom: '0.4rem', display: 'block' }}>Write Response / Resolution Notes</label>
+                      <textarea
+                        rows="4"
+                        placeholder="Provide details on how this issue was resolved..."
+                        value={resolutionNotes}
+                        onChange={(e) => setResolutionNotes(e.target.value)}
+                        className="form-control"
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-light)', resize: 'vertical' }}
+                        required
+                      />
+                    </div>
+                    <button type="submit" disabled={submitting} className="btn btn-primary submit-status-btn" style={{ width: '100%', padding: '0.8rem', borderRadius: '50px', fontWeight: '600' }}>
+                      {submitting ? 'Resolving...' : 'Mark as Resolved & Close'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Ticket Center Dashboard Split View */
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem' }}>
+              
+              {/* Return Requests List */}
+              <div className="returns-section">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <RotateCcw size={18} /> Active Return Requests ({adminReturns.filter(r => r.status === 'pending').length})
+                </h3>
+
+                {adminReturnsLoading ? (
+                  <div className="loading-spinner"><div className="spinner"></div></div>
+                ) : adminReturns.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', border: '1px dashed var(--border-light)', borderRadius: '16px', color: 'var(--text-muted)' }}>
+                    <p style={{ fontSize: '0.85rem' }}>No return requests pending approval.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {adminReturns.map(r => (
+                      <div key={r.id} style={{ border: '1px solid var(--border-light)', borderRadius: '16px', padding: '1.25rem', backgroundColor: r.status === 'pending' ? 'var(--white)' : 'var(--bg-subtle)', boxShadow: 'var(--shadow-sm)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                          <div>
+                            <span style={{ fontSize: '0.8rem', fontWeight: '800' }}>
+                              ORDER #{r.order_id.slice(0, 8).toUpperCase()}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.75rem' }}>
+                              {new Date(r.created_at).toLocaleDateString('en-IN')}
+                            </span>
+                          </div>
+                          <span className={`status-badge ${r.status}`} style={{ fontSize: '0.7rem', fontWeight: '800', padding: '0.15rem 0.5rem', borderRadius: '20px', textTransform: 'uppercase', backgroundColor: r.status === 'pending' ? 'rgba(245, 158, 11, 0.1)' : r.status === 'approved' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(225, 29, 72, 0.1)', color: r.status === 'pending' ? '#f59e0b' : r.status === 'approved' ? '#10b981' : 'var(--primary)' }}>
+                            {r.status}
+                          </span>
+                        </div>
+
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                          Customer: <strong>{r.profiles?.full_name || 'Guest'}</strong> ({r.profiles?.email || 'N/A'})
+                        </p>
+                        
+                        <div style={{ fontSize: '0.8rem', backgroundColor: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', marginBottom: '0.75rem' }}>
+                          <span style={{ fontWeight: '700', color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Reason for Return:</span>
+                          <span style={{ fontWeight: '600' }}>{r.reason.replace('_', ' ').toUpperCase()}</span>
+                          {r.comments && <p style={{ marginTop: '0.25rem', fontStyle: 'italic' }}>"{r.comments}"</p>}
+                        </div>
+
+                        <div style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
+                          <span style={{ fontWeight: '700', color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Items to Return:</span>
+                          {r.items?.map((item, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.15rem' }}>
+                              <span>• Product ID: {item.product_id.slice(0, 8)} | Qty: {item.quantity} | Size: UK {item.size}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {r.status === 'pending' && (
+                          <button
+                            onClick={() => {
+                              const ord = orders.find(o => o.id === r.order_id);
+                              if (ord) {
+                                setActiveTab('orders');
+                                openOrderDetails(ord);
+                              } else {
+                                alert('Order details not found.');
+                              }
+                            }}
+                            className="btn btn-primary"
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', fontSize: '0.8rem', marginTop: '0.25rem' }}
+                          >
+                            Review & Process Refund
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Customer Tickets List */}
+              <div className="tickets-section" style={{ borderLeft: '1px solid var(--border-light)', paddingLeft: '2.5rem' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MessageSquare size={18} /> Support Tickets ({adminTickets.filter(t => t.status === 'open').length})
+                </h3>
+
+                {adminTicketsLoading ? (
+                  <div className="loading-spinner"><div className="spinner"></div></div>
+                ) : adminTickets.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', border: '1px dashed var(--border-light)', borderRadius: '16px', color: 'var(--text-muted)' }}>
+                    <p style={{ fontSize: '0.85rem' }}>No support tickets filed.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {adminTickets.map(t => (
+                      <div key={t.id} style={{ border: '1px solid var(--border-light)', borderRadius: '16px', padding: '1rem', backgroundColor: t.status === 'open' ? 'var(--white)' : 'var(--bg-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: 'var(--border-light)' }}>
+                            {t.category}
+                          </span>
+                          <span className={`status-badge ${t.status}`} style={{ fontSize: '0.65rem', fontWeight: '800', padding: '0.1rem 0.4rem', borderRadius: '20px', textTransform: 'uppercase', backgroundColor: t.status === 'open' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: t.status === 'open' ? '#f59e0b' : '#10b981' }}>
+                            {t.status}
+                          </span>
+                        </div>
+
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '0.25rem' }}>{t.subject}</h4>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                          By: {t.profiles?.full_name || 'Customer'}
+                        </p>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginBottom: '0.75rem' }}>
+                          {t.message}
+                        </p>
+
+                        <button
+                          onClick={() => {
+                            setSelectedTicket(t);
+                            setResolutionNotes(t.resolution_notes || '');
+                          }}
+                          className="btn btn-outline"
+                          style={{ width: '100%', padding: '0.4rem', borderRadius: '8px', fontSize: '0.75rem' }}
+                        >
+                          {t.status === 'open' ? 'Respond & Resolve' : 'View Resolution'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
         </div>
