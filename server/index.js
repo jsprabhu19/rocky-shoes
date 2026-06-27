@@ -589,9 +589,12 @@ app.post('/api/admin/orders/:id/status', requireAdmin, async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Database service unavailable' });
 
     const updateFields = { status };
-    if (tracking_number !== undefined) updateFields.tracking_number = tracking_number;
-    if (carrier !== undefined) updateFields.carrier = carrier;
-    if (estimated_delivery !== undefined) updateFields.estimated_delivery = estimated_delivery;
+    if (tracking_number) updateFields.tracking_number = tracking_number;
+    else updateFields.tracking_number = null;
+    if (carrier) updateFields.carrier = carrier;
+    else updateFields.carrier = null;
+    if (estimated_delivery) updateFields.estimated_delivery = estimated_delivery;
+    else updateFields.estimated_delivery = null;
 
     const { data: order, error } = await supabase
       .from('orders')

@@ -3,6 +3,13 @@
 -- Execute this script in the Supabase SQL Editor to update your tables.
 -- =========================================================================
 
+-- 0. UPDATE ORDERS TABLE STATUS CONSTRAINT
+-- Expand the allowed status values to include 'returning' and 'returned'
+alter table public.orders drop constraint if exists orders_status_check;
+alter table public.orders add constraint orders_status_check
+  check (status in ('pending', 'paid', 'failed', 'shipped', 'delivered', 'returning', 'returned', 'cancelled'));
+
+
 -- 1. CREATE SUPPORT TICKETS TABLE
 create table if not exists public.support_tickets (
   id uuid default gen_random_uuid() primary key,
