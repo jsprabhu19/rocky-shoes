@@ -24,6 +24,44 @@ export default function Checkout() {
   const [processing, setProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Promo Code States
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState('');
+  const [discount, setDiscount] = useState(0);
+
+  // Recalculate discount if total changes
+  useEffect(() => {
+    if (appliedPromo === 'ROCKY10') {
+      setDiscount(Math.round(totalPrice * 0.1));
+    } else {
+      setDiscount(0);
+    }
+  }, [totalPrice, appliedPromo]);
+
+  const handleApplyPromo = () => {
+    setPromoError('');
+    if (appliedPromo) {
+      // Remove promo code
+      setAppliedPromo(null);
+      setPromoCode('');
+      setDiscount(0);
+      return;
+    }
+
+    const trimmed = promoCode.trim().toUpperCase();
+    if (!trimmed) return;
+
+    if (trimmed === 'ROCKY10') {
+      setAppliedPromo('ROCKY10');
+      setDiscount(Math.round(totalPrice * 0.1));
+    } else {
+      setPromoError('Invalid promo code. Please try again.');
+    }
+  };
+
+  const finalAmount = totalPrice - discount;
+
   // Prefill form from user profile
   useEffect(() => {
     if (profile) {
@@ -80,7 +118,7 @@ export default function Checkout() {
         full_name: fullName,
         phone,
         shipping_address: address,
-        total_amount: totalPrice,
+        total_amount: finalAmount,
         status: 'pending'
       };
 
@@ -139,7 +177,7 @@ export default function Checkout() {
         method: 'POST',
         headers: paymentHeaders,
         body: JSON.stringify({
-          amount: totalPrice,
+          amount: finalAmount,
           receipt: dbOrderId
         })
       });
@@ -333,11 +371,46 @@ export default function Checkout() {
 
             <hr className="summary-dotted-divider" />
 
+            {/* Promo Code Input */}
+            <div className="promo-code-container">
+              <div className="promo-input-row">
+                <input
+                  type="text"
+                  placeholder="Enter coupon (e.g. ROCKY10)"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  disabled={appliedPromo !== null}
+                  className="form-control promo-input"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyPromo}
+                  className="btn btn-primary promo-btn"
+                >
+                  {appliedPromo ? 'Remove' : 'Apply'}
+                </button>
+              </div>
+              {promoError && <p className="promo-error-msg">{promoError}</p>}
+              {appliedPromo && (
+                <p className="promo-success-msg">
+                  Coupon <strong>{appliedPromo}</strong> applied! 10% discount.
+                </p>
+              )}
+            </div>
+
+            <hr className="summary-dotted-divider" />
+
             <div className="checkout-calculations">
               <div className="calc-row">
                 <span>Subtotal</span>
                 <span>₹{totalPrice.toLocaleString('en-IN')}</span>
               </div>
+              {discount > 0 && (
+                <div className="calc-row discount-row animate-fade">
+                  <span>Promo Discount (10%)</span>
+                  <span>-₹{discount.toLocaleString('en-IN')}</span>
+                </div>
+              )}
               <div className="calc-row">
                 <span>Shipping</span>
                 <span className="shipping-free">FREE</span>
@@ -345,7 +418,7 @@ export default function Checkout() {
               <hr className="pane-divider" />
               <div className="calc-row final-row">
                 <span>Total Payment</span>
-                <span className="final-price-tag">₹{totalPrice.toLocaleString('en-IN')}</span>
+                <span className="final-price-tag">₹{finalAmount.toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>
@@ -545,6 +618,50 @@ export default function Checkout() {
         .btn-simulate-submit:hover {
           background-color: var(--primary);
           border-color: var(--primary);
+        }
+
+        /* Promo Code Styles */
+        .promo-code-container {
+          margin: 1.25rem 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .promo-input-row {
+          display: flex;
+          gap: 0.75rem;
+        }
+        .promo-input {
+          flex: 1;
+          padding: 0.6rem 1rem !important;
+          font-size: 0.9rem !important;
+          border-radius: 10px !important;
+        }
+        .promo-btn {
+          padding: 0.6rem 1.2rem !important;
+          font-size: 0.85rem !important;
+          border-radius: 10px !important;
+          font-weight: 700;
+          margin-top: 0 !important;
+        }
+        .promo-error-msg {
+          font-size: 0.8rem;
+          color: var(--error);
+          font-weight: 600;
+          margin-top: 0.25rem;
+        }
+        .promo-success-msg {
+          font-size: 0.8rem;
+          color: var(--success);
+          font-weight: 600;
+          margin-top: 0.25rem;
+        }
+        .discount-row {
+          color: var(--success) !important;
+          font-weight: 600;
+        }
+        .discount-row span:last-child {
+          color: var(--success) !important;
         }
       `}} />
     </div>
