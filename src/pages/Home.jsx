@@ -103,7 +103,7 @@ export default function Home() {
             <h2 className="section-title">Shop by Category</h2>
             <p className="section-subtitle">Find the perfect fit for your activities</p>
           </div>
-          
+
           <div className="categories-grid-row">
             {/* Sneakers Card */}
             <div className="category-card" onClick={() => navigate('/shop?category=sneakers')}>
@@ -169,7 +169,8 @@ export default function Home() {
       </section>
 
       {/* Embedded CSS for Home Styling */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         /* Hero Banner */
         .hero-banner {
           position: relative;

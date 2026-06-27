@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Send, MapPin, Phone, Mail } from 'lucide-react';
 import { apiUrl } from '../apiConfig';
 
@@ -60,10 +61,10 @@ export default function Footer() {
         <div className="footer-col">
           <h4 className="footer-title">Categories</h4>
           <ul className="footer-links">
-            <li><a href="/shop?category=sneakers">Sneakers</a></li>
-            <li><a href="/shop?category=running_shoes">Running Shoes</a></li>
-            <li><a href="/shop?category=boots">Boots</a></li>
-            <li><a href="/shop">Shop All Footwear</a></li>
+            <li><Link to="/shop?category=sneakers">Sneakers</Link></li>
+            <li><Link to="/shop?category=running_shoes">Running Shoes</Link></li>
+            <li><Link to="/shop?category=boots">Boots</Link></li>
+            <li><Link to="/shop">Shop All Footwear</Link></li>
           </ul>
         </div>
 
